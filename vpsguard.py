@@ -337,6 +337,8 @@ def apply(plan):
     atomic_write(folder / 'engine.py', Path(__file__).read_bytes())
     needs_timer = bool(set(actions) & {'ssh', 'firewall'})
     if needs_timer:
+        manifest['confirmation_deadline'] = int(time.time()) + 120
+        save_manifest(folder, manifest)
         checked(['systemd-run', '--unit=vpsguard-rollback-' + identifier, '--on-active=120s', '--timer-property=AccuracySec=1s', '/usr/bin/python3', str(folder / 'engine.py'), '--rollback', identifier, '--automatic'])
         checked(['systemctl', 'is-active', 'vpsguard-rollback-' + identifier + '.timer'])
     manifest['state'] = 'applying'; save_manifest(folder, manifest)
@@ -362,7 +364,7 @@ def apply(plan):
             if 'Status: active' not in status or any(not re.search(r'\b' + str(p) + r'/tcp\s+ALLOW', status) for p in plan['ports']): raise RuntimeError('Firewall status/SSH rule verification failed')
         reload_services(actions)
         manifest['state'] = 'awaiting_confirmation' if needs_timer else 'confirmed'; save_manifest(folder, manifest)
-        return dict(id=identifier, state=manifest['state'], actions=actions, confirm='Reconnect as the selected admin, use sudo, then run --confirm ' + identifier if needs_timer else '', deadline_seconds=120 if needs_timer else None)
+        return dict(id=identifier, state=manifest['state'], actions=actions, confirm='Reconnect as the selected admin, use sudo, then run --confirm ' + identifier if needs_timer else '', confirmation_deadline=manifest.get('confirmation_deadline'))
     except Exception:
         rollback(identifier); raise
 
@@ -372,6 +374,7 @@ def confirm(identifier):
     if manifest['state'] != 'awaiting_confirmation': raise ValueError('Transaction is not awaiting confirmation')
     connection = os.environ.get('SSH_CONNECTION', '')
     if len(connection.split()) != 4 or connection == manifest['ssh_connection'] or os.environ.get('SUDO_USER') != manifest['admin']: raise ValueError('Confirm through sudo from a NEW SSH session as the selected non-root admin')
+    if time.time() >= manifest.get('confirmation_deadline', 0): raise ValueError('Confirmation window expired; let the scheduled rollback restore access')
     verify_admin(manifest['admin'])
     checked(['systemctl', 'is-active', 'vpsguard-rollback-' + identifier + '.timer'])
     # All state changes are serialized by the CLI lock, including timer rollback.

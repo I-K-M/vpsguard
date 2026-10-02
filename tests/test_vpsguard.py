@@ -73,6 +73,11 @@ class HostTests(unittest.TestCase):
         (folder/'manifest.json').write_text(json.dumps(dict(state='awaiting_confirmation',ssh_connection='1 2 3 22',admin='fixture')))
         with patch.dict(os.environ,{'SSH_CONNECTION':'1 2 3 22','SUDO_USER':'fixture'}):
             with self.assertRaises(ValueError):vg.confirm(folder.name)
+    def test_expired_confirmation_is_refused(self):
+        folder=vg.STATE/'20261002T120000-abcd1234';folder.mkdir()
+        (folder/'manifest.json').write_text(json.dumps(dict(state='awaiting_confirmation',ssh_connection='1 2 3 22',admin='fixture',confirmation_deadline=0)))
+        with patch.dict(os.environ,{'SSH_CONNECTION':'1 99 3 22','SUDO_USER':'fixture'}):
+            with self.assertRaisesRegex(ValueError,'expired'):vg.confirm(folder.name)
     def test_rollback_validates_all_backups_before_restoring(self):
         path=vg.hostpath('/etc/example');path.write_text('before')
         folder=vg.STATE/'20261002T120000-abcd1234';folder.mkdir()
