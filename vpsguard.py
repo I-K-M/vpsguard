@@ -250,7 +250,9 @@ def validate_plan(plan):
     if not isinstance(plan.get('web'), bool): raise ValueError('Invalid firewall web flag')
     if set(actions) & {'ssh', 'firewall'}:
         verify_admin(plan.get('admin', ''))
-        if not plan.get('access_confirmed') or plan.get('ssh_connection') != os.environ.get('SSH_CONNECTION'): raise ValueError('Access context changed; replan from current SSH session')
+        before = plan.get('ssh_connection', '').split()
+        current = os.environ.get('SSH_CONNECTION', '').split()
+        if not plan.get('access_confirmed') or len(before) != 4 or len(current) != 4 or [before[i] for i in (0, 2, 3)] != [current[i] for i in (0, 2, 3)]: raise ValueError('Access origin or server port changed; replan from current SSH session')
     if set(actions) & {'ssh', 'firewall', 'fail2ban'} and plan.get('ports') != ssh_ports(): raise ValueError('SSH port state changed')
 
 def backup(path, folder):
@@ -289,7 +291,7 @@ def rollback(identifier, automatic=False):
         try:
             target = hostpath(entry['path'])
             if entry['existed']:
-                atomic_write(target, (folder / entry['blob']).read_bytes(), entry['mode']); os.chown(target, entry['uid'], entry['gid'])
+                atomic_write(target, (folder / entry['blob']).read_bytes(), entry['mode']); os.chown(target, entry['uid'], entry['gid']); os.chmod(target, entry['mode'])
             else:
                 if target.is_symlink(): raise RuntimeError('Managed path changed to symlink')
                 target.unlink(missing_ok=True)
@@ -326,7 +328,7 @@ def apply(plan):
     folder = STATE / identifier; folder.mkdir(parents=True, mode=0o700); os.chmod(STATE, 0o700)
     paths = {PATHS[a] for a in actions if a in PATHS}
     if 'firewall' in actions: paths |= {'/etc/default/ufw', '/etc/ufw/ufw.conf', '/etc/ufw/user.rules', '/etc/ufw/user6.rules'}
-    manifest = dict(id=identifier, state='prepared', actions=actions, admin=plan['admin'], ssh_connection=plan['ssh_connection'], files=[backup(p, folder) for p in sorted(paths)], sysctl={}, firewall_active=False)
+    manifest = dict(id=identifier, state='prepared', actions=actions, admin=plan['admin'], ssh_connection=os.environ.get('SSH_CONNECTION', ''), files=[backup(p, folder) for p in sorted(paths)], sysctl={}, firewall_active=False)
     if 'sysctl' in actions: manifest['sysctl'] = {k: checked(['sysctl', '-n', k]) for k in SYSCTL_VALUES}
     if 'firewall' in actions: manifest['firewall_active'] = 'Status: active' in checked(['ufw', 'status'])
     save_manifest(folder, manifest)

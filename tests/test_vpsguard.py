@@ -62,6 +62,12 @@ class HostTests(unittest.TestCase):
         timer=next(i for i,a in enumerate(calls) if a[0]=='systemd-run')
         self.assertLess(timer,allow);self.assertLess(allow,policy)
         self.assertEqual(report['state'],'awaiting_confirmation')
+    def test_apply_accepts_new_client_port_but_rejects_new_origin(self):
+        plan=self.plan(['ssh'])
+        with patch.object(vg,'verify_admin'),patch.object(vg,'ssh_ports',return_value=[2222]):
+            with patch.dict(os.environ,{'SSH_CONNECTION':'1 99 3 2222'}):vg.validate_plan(plan)
+            with patch.dict(os.environ,{'SSH_CONNECTION':'9 99 3 2222'}):
+                with self.assertRaises(ValueError):vg.validate_plan(plan)
     def test_confirm_requires_new_session_and_selected_admin(self):
         folder=vg.STATE/'20261002T120000-abcd1234';folder.mkdir()
         (folder/'manifest.json').write_text(json.dumps(dict(state='awaiting_confirmation',ssh_connection='1 2 3 22',admin='fixture')))
