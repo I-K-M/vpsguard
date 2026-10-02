@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+/reports/
+/dist/
+/staging/
+/wp-security
+/report*.json
+/scan-result.log
+*.pem
+*.key
+.env
