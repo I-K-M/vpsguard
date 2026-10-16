@@ -45,7 +45,7 @@ jobs:
           output: source-scan.json
       - name: Retain scan evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: source-evidence
           path: source-scan.json
@@ -66,7 +66,7 @@ jobs:
         run: bash tests/vm.sh
       - name: Retain sanitised integration evidence
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: vm-evidence-${{ matrix.os }}
           path: reports/
@@ -110,7 +110,7 @@ jobs:
           chmod 755 staging/vpsguard.sh
           tar -czf "dist/vpsguard-$RELEASE_TAG.tar.gz" -C staging .
           (cd dist && sha256sum ./* > SHA256SUMS)
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: release-payload
           path: dist/
